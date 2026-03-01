@@ -317,6 +317,7 @@ void ArtifastringString::bow_accel(const float bow_ratio_from_bridge,
     va.Fb = bow_force;
     va.va = bow_accel * dt;
     va.vb_target = bow_velocity_target;
+
     const float bow_distance_from_bridge = pc.L * bow_ratio_from_bridge;
     if (! (almostEquals(va.bow_pluck_position, bow_distance_from_bridge)) )
     {
@@ -799,21 +800,55 @@ inline float ArtifastringString::tick_free()
 
 
 void ArtifastringString::update_bow_accel() {
+
     // accelerate bow
-    va.vb += va.va;
-    if (va.va > 0) {
-        if (va.vb > va.vb_target) {
+    if (va.vb_target > va.vb){
+        // don't overshoot
+        if ((va.vb + va.va) > va.vb_target ){
             va.vb = va.vb_target;
-            ss.actions = BOW;
+        } else {
+            va.vb += va.va;
         }
-    } else {
+    }
+    // decelerate bow
+    else if (va.vb_target < va.vb){
+        // don't overshoot
+        if ((va.vb - va.va) < va.vb_target ){
+            va.vb = va.vb_target;
+        } else {
+            va.vb -= va.va;
+        }
+    }
+    // target has been reached
+    else {
+        return;
+    }
+
+    if (va.va > 0) {
+        // are we accelerating
+        if (va.vb_target > va.vb) {
+            if (va.vb > va.vb_target) {
+                va.vb = va.vb_target;
+                ss.actions = BOW;
+            }
+        }
+        // or decelerating
+        else {
+            if (va.vb < va.vb_target ) {
+                va.vb = va.vb_target;
+                ss.actions = BOW;
+            }
+        }
+    }
+    // I don't yet know when va is less than or equal to 0
+    else {
         if (va.vb < va.vb_target) {
             va.vb = va.vb_target;
             ss.actions = BOW;
         }
     }
-    //printf("%g\t%g\n", time_seconds, va.vb);
-    //printf("%g\n", va.vb);
+    // printf("%g\t%g\n", time_seconds, va.vb);
+    // printf("%g\n", va.vb);
 }
 
 void ArtifastringString::update_pluck_actions() {
