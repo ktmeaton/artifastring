@@ -181,8 +181,16 @@ void MonoWav::writeBuffer()
 {
     total_samples += index;
     if (is_int) {
+        printf("writeBuffer data_i:\n");
+        for (int i = 0; i < 10; i++) {
+            printf("\t%i: %f\n", i, data_i[i]);
+        }
         fwrite(data_i, sizeof(int), index, outfile);
     } else {
+        printf("writeBuffer data_s:\n");
+        for (int i = 0; i < 10; i++) {
+            printf("\t%i: %f\n", i, data_s[i]);
+        }        
         fwrite(data_s, sizeof(short), index, outfile);
     }
     index = 0;

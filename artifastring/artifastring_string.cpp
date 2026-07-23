@@ -67,7 +67,7 @@ ArtifastringString::ArtifastringString(InstrumentType which_instrument,
     fs_multiplier = fs_multiplication_factor;
     fs = fs_multiplier * instrument_sample_rate;
     dt = 1.0f / fs;
-    //printf("fs: %i\tmult: %i\n", fs, fs_multiplier);
+    printf("fs: %i\tmult: %i\n", fs, fs_multiplier);
 
     switch (which_instrument) {
     case Violin: {
@@ -368,7 +368,7 @@ void ArtifastringString::cache_pc_c()
         rn(i) = pc.rn[i];
     }
 #endif
-
+   
     const AA w0 = ( (pc.T/pc.pl) * ((n*PI*sc.div_pc_L).square())
                     + (pc.E*I/pc.pl) * ((n*PI*sc.div_pc_L).square().square()) ).sqrt();
 #ifdef FIXEDSIZE
@@ -395,6 +395,10 @@ void ArtifastringString::cache_pc_c()
     //std::cout<<"Y3"<<std::endl<<sc.Y3<<std::endl;
 
     sc.G = sc.sqrt_two_div_L * (pc.T*(n*PI*sc.div_pc_L) + pc.E*I*(n*PI*sc.div_pc_L).cube());
+    // printf("sc.G Elements:\n");
+    // for (int i = 0; i < 10; i++) {
+    //     printf("\t%i: %f\n", i, sc.G[i]);
+    // }
 
     inside_phi = n*PI*sc.div_pc_L;
     vc.recache = true;
@@ -880,6 +884,7 @@ void ArtifastringString::fill_buffer_forces(float *buffer, float *forces,
     if (vc.recache) {
         cache_pa_c();
     }
+    printf("fs_multiplier: %i, num_samples_instrument: %i\n", fs_multiplier, num_samples_instrument);
     int num_samples = fs_multiplier * num_samples_instrument;
     //printf("# fill_buffer_forces()  string_num, ss.actions, ticks, num_samples_instrument, num_samples\n: %i %i %i %i %i\n",
     //    debug_string_num, ss.actions, debug_ticks, num_samples_instrument, num_samples);
@@ -896,26 +901,20 @@ void ArtifastringString::fill_buffer_forces(float *buffer, float *forces,
     return;
 #endif
 
-#ifdef DEBUG_ONLY_SINE_OUTPUT
-    if (va.Fb == 0) {
-        for (int i=0; i<num_samples; i++) {
-            buffer[i] = 0;
-            if (forces != NULL) {
-                forces[i] = 0;
-            }
-        }
-        return;
-    }
+// #ifdef DEBUG_ONLY_SINE_OUTPUT
     for (int i=0; i<num_samples; i++) {
-        buffer[i] = sin( 10000.0*2*M_PI*dt*debug_ticks);
+        float t = (float)i / 88200.0;
+        float frequency = 440.0;
+        float raw = t * frequency * 2.0 * M_PI;
+        float sample = sin(raw);
+        float value = sin( frequency*2*M_PI*dt*debug_ticks);
+        //printf("n: %i, t: %.6f, raw: %.6f, sample: %.6f, value: %.6f, dt: %.6f, debug_ticks: %i\n", i, t, raw, sample, value, dt, debug_ticks);
+        buffer[i] = value;
         //printf("%g\n", buffer[i]);
-        if (forces != NULL) {
-            forces[i] = sin( 10000.0*2*M_PI*dt*debug_ticks);
-        }
         debug_ticks++;
     }
     return;
-#endif
+// #endif
 
 
 

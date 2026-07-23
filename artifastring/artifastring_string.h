@@ -49,7 +49,7 @@ enum ExternalActionsType {
 
 
 struct StringConstants {
-    AA X1; // displacement
+    AA X1; // displacementz
     AA X2;
     AA X3;
     AA Y1; // velocity

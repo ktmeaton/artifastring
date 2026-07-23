@@ -386,10 +386,10 @@ int ArtifastringInstrument::wait_samples(short *buffer, int num_samples)
 int ArtifastringInstrument::wait_samples_forces(short *buffer, short *forces,
         int num_samples)
 {
-    //printf("wait_sample_forces, num_samples: %i\n", num_samples);
     int remaining = num_samples;
     int position = 0;
     while (remaining > NORMAL_BUFFER_SIZE) {
+        printf("wait_sample_forces | num_samples: %i, remaining: %i\n", num_samples, remaining);
         if (buffer == NULL) {
             handle_buffer(NULL, NULL, NORMAL_BUFFER_SIZE); // special case
         } else {
@@ -401,6 +401,7 @@ int ArtifastringInstrument::wait_samples_forces(short *buffer, short *forces,
         position += NORMAL_BUFFER_SIZE;
     }
     if (remaining > 0) {
+        printf("wait_sample_forces | num_samples: %i, remaining: %i\n", num_samples, remaining);
         if (buffer == NULL) {
             handle_buffer(buffer+position,
                           NULL, remaining);
@@ -427,198 +428,75 @@ void ArtifastringInstrument::handle_buffer(short output[], short forces[],
     // FIXME: maybe not necessary?  especially force?
     for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
         string_audio_lowpass_convolution[st]->clear_input_buffer();
-        string_force_lowpass_convolution[st]->clear_input_buffer();
     }
 
+    // Step 1. Generate initial sound , populates audio_lowpass_input
+    // how is this related to the lowpass convolution?
     // calculate string buffers
-    for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
-        if ((st == bow_string) && (forces != NULL)) {
-            artifastringString[st]->fill_buffer_forces(
-                string_audio_lowpass_input[st],
-                string_force_lowpass_input[st],
-                num_samples);
-        } else {
-            //printf("no force\t%i %i\n", st, bow_string);
+    for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {     
             artifastringString[st]->fill_buffer_forces(
                 string_audio_lowpass_input[st],
                 NULL,
                 num_samples);
-        }
     }
 
-    // decimate string buffers
-    for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
-#ifdef HIGH_FREQUENCY_NO_DOWNSAMPLING
-        const int fs_multiply = 1;
-#else
-        const int fs_multiply = FS_MULTIPLICATION_FACTOR[m_instrument_type][st];
-#endif
-        //const int fs_index = fs_multiply - 1;
+    printf("Step 1. Initial sound samples\n");
+    for (int i = 0; i < 10; i++) {
+        printf("\t%i: %f\n", i, string_audio_lowpass_input[0][i]);
+    }
+    // small numbers can be negative and positive, up to 1.8? 
 
+    // Step 2. Pass to low pass filter?
+    // decimate string buffers
+    // process executes the fft plan
+    for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
+        const int fs_multiply = FS_MULTIPLICATION_FACTOR[m_instrument_type][st];
         float prep[NORMAL_BUFFER_SIZE*fs_multiply];
         string_audio_lowpass_convolution[st]->process(prep, fs_multiply*num_samples);
         for (int i=0; i<num_samples; i++) {
             string_audio_output[st][i] = prep[fs_multiply*i];
         }
+    }
+    printf("Step 2. Low pass\n");
+    for (int i = 0; i < 10; i++) {
+        printf("\t%i: %f\n", i, string_audio_output[0][i]);
+    }
+    //medium numbers (1-20)
 
-        string_force_lowpass_convolution[st]->process(prep, fs_multiply*num_samples);
+    // Step 3. Pass to body filter, sum all strings
+    // FIXME
+    memset(output, 0, sizeof(short) * num_samples);
+
+    body_audio_convolution->clear_input_buffer();
+    for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
         for (int i=0; i<num_samples; i++) {
-            string_force_output[st][i] = prep[fs_multiply*i];
+            body_audio_input[i] += string_audio_output[st][i];
+            //body_audio_input[i] += string_audio_lowpass_input[st][i];
         }
     }
+    printf("Step 3. Body Input\n");
+    for (int i = 0; i < 15; i++) {
+        printf("\t%i: %f\n", i, body_audio_input[i]);
+    }
 
-    // FIXME
-#if 0
+    // always prints same value, last value printed in step 3
+    printf("Step 4. Body output pre\n");
+    for (int i = 0; i < 10; i++) {
+        printf("\t%i: %f\n", i, output[i]);
+    }
+
+    float prep[NORMAL_BUFFER_SIZE];
+    body_audio_convolution->process(prep, num_samples);
     for (int i=0; i<num_samples; i++) {
-        std::cout<< string_audio_output[0][i] <<std::endl;
-    }
-#endif
-
-
-    // FIXME
-    if (output != NULL) {
-        memset(output, 0, sizeof(short) * num_samples);
-
-        body_audio_convolution->clear_input_buffer();
-        for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
-            for (int i=0; i<num_samples; i++) {
-                body_audio_input[i] += string_audio_output[st][i];
-            }
-        }
-        float prep[NORMAL_BUFFER_SIZE];
-        body_audio_convolution->process(prep, num_samples);
-        for (int i=0; i<num_samples; i++) {
-            output[i] = prep[i];
-        }
+        output[i] = prep[i];
     }
 
-#if 0
-    for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
-        for (int i=0; i<num_samples; i++) {
-            output[i] += 1e2*string_audio_output[st][i];
-            forces[i] += 1e2*string_force_output[st][i];
-        }
+    printf("Step 4. Body output post\n");
+    for (int i = 0; i < 10; i++) {
+        printf("\t%i: %f\n", i, output[i]);
     }
-#endif
-
-#if 0
-    // calculate body input from strings
-    for (int fs_index=0; fs_index<NUM_MULTIPLIERS; fs_index++) {
-        if (string_audio_lowpass_input[fs_index] != NULL) {
-            audio_convolution[fs_index]->clear_input_buffer();
-        }
-    }
-    for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
-#ifdef HIGH_FREQUENCY_NO_DOWNSAMPLING
-        const int fs_multiply = 1;
-#else
-        const int fs_multiply = FS_MULTIPLICATION_FACTOR[m_instrument_type][st];
-#endif
-        const int fs_index = fs_multiply - 1;
-        if (string_audio_lowpass_input[fs_index] != NULL) {
-            for (int i=0; i<fs_multiply*num_samples; i++) {
-                string_audio_lowpass_input[fs_index][i] += violin_string_buffer[st][i];
-            }
-        }
-    }
-
-#ifdef DEBUG_WITH_WHITE_NOISE
-    // FIXME: temp white noise
-    for (int fs_index=0; fs_index<NUM_MULTIPLIERS; fs_index++) {
-        if (string_audio_lowpass_input[fs_index] != NULL) {
-#ifdef HIGH_FREQUENCY_NO_DOWNSAMPLING
-            const int fs_multiply = 1;
-#else
-            const int fs_multiply = fs_index + 1;
-#endif
-            for (int i=0; i<num_samples*fs_multiply; i++) {
-                string_audio_lowpass_input[fs_index][i] = 2.0*(double(rand()) / RAND_MAX) - 1.0;
-                string_force_lowpass_input[fs_index][i] = 2.0*(double(rand()) / RAND_MAX) - 1.0;
-            }
-        }
-    }
-#endif
-    if (output != NULL) {
-        for (int i=0; i<num_samples; i++) {
-            output[i] = 0;
-        }
-#ifndef NO_AUDIO_FILTERING
-        for (int fs_index=0; fs_index<NUM_MULTIPLIERS; fs_index++) {
-            if (string_audio_lowpass_input[fs_index] != NULL) {
-#ifdef HIGH_FREQUENCY_NO_DOWNSAMPLING
-                const int fs_multiply = 1;
-#else
-                const int fs_multiply = fs_index + 1;
-#endif
-                short prep[NORMAL_BUFFER_SIZE*fs_multiply];
-                audio_convolution[fs_index]->process(prep,
-                                                     fs_multiply*num_samples);
-                for (int i=0; i<num_samples; i++) {
-                    output[i] += prep[fs_multiply*i];
-                }
-            }
-        }
-#else
-        //printf("num_samples %i\n", num_samples);
-        // yes, this doesn't remove the aliasing!
-        for (int fs_index=0; fs_index<NUM_MULTIPLIERS; fs_index++) {
-            if (string_audio_lowpass_input[fs_index] != NULL) {
-#ifdef HIGH_FREQUENCY_NO_DOWNSAMPLING
-                const int fs_multiply = 1;
-#else
-                const int fs_multiply = fs_index + 1;
-#endif
-                for (int i=0; i<num_samples; i++) {
-                    output[i] += 1e3*string_audio_lowpass_input[fs_index][fs_multiply*i];
-                }
-            }
-        }
-#endif
-    }
-    if (forces != NULL) {
-        if (bow_string >= 0) {
-#ifdef HIGH_FREQUENCY_NO_DOWNSAMPLING
-            const int fs_multiply = 1;
-#else
-            const int fs_multiply = FS_MULTIPLICATION_FACTOR[m_instrument_type][bow_string];
-#endif
-            const int fs_index = fs_multiply - 1;
-#ifdef NO_HAPTIC_FILTERING
-            // no filtering
-            const float haptic_gain = 1e4;
-            for (int i=0; i<num_samples/HAPTIC_DOWNSAMPLE_FACTOR; i++) {
-                forces[i] = haptic_gain * string_force_lowpass_input[fs_index][HAPTIC_DOWNSAMPLE_FACTOR*i*fs_multiply];
-            }
-#else
-            //printf("--in--- %g\n", string_force_lowpass_input[fs_index][0] );
-            const int haptic_samples_body = num_samples/HAPTIC_DOWNSAMPLE_FACTOR;
-            const int haptic_samples_string = num_samples * fs_multiply;
-            //printf("--- num_samples: %i\n", num_samples);
-            //printf("haptic samples: %i %i\n", haptic_samples_body, haptic_samples_string);
-
-            //short convoluted[NORMAL_BUFFER_SIZE * fs_multiply];
-            short prep[NORMAL_BUFFER_SIZE*fs_multiply];
-
-            haptic_convolution[fs_index]->process(prep, haptic_samples_string);
-            //printf("%i\n", convoluted[0]);
-            for (int i=0; i<haptic_samples_body; i++) {
-                const int read_i = HAPTIC_DOWNSAMPLE_FACTOR*i*fs_multiply;
-                //printf("%i\t%i\n", i, read_i);
-                //printf("%i\n", prep[read_i]);
-                forces[i] = prep[read_i];
-
-                //forces[i] = 1e4*string_force_lowpass_input[fs_index][i*fs_multiply];
-            }
-            //exit(1);
-            //printf("--out-- %i\n", forces[0]);
-#endif
-        } else {
-            for (int i=0; i<num_samples/HAPTIC_DOWNSAMPLE_FACTOR; i++) {
-                forces[i] = 0;
-            }
-        }
-    }
-#endif
+    // Very large numbers! positive and negative (-7495420962.032595, 405377873483674.750000)
+    // All the same number, why?
 }
 
 #ifdef RESEARCH
