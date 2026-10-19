@@ -96,7 +96,8 @@ void command_finger(ArtifastringInstrument *violin, MonoWav *wavfile,
     float next_time;
     int which_string;
     float finger_position;
-    if (num_tabs == 3) {
+
+    if (num_tabs == 3 || num_tabs > 4) {
         sscanf(command.c_str(), "f\t%f\t%i\t%f",
                &next_time, &which_string, &finger_position);
         waitUntil(violin, wavfile, forces_file, next_time);
@@ -108,7 +109,7 @@ void command_finger(ArtifastringInstrument *violin, MonoWav *wavfile,
         waitUntil(violin, wavfile, forces_file, next_time);
         violin->finger(which_string, finger_position, spring_K);
     } else {
-        printf("Badly formed finger line in .actions file\n");
+        printf("Badly formed finger line in .actions file. num_tabs = %i\n", num_tabs);
     }
 }
 
@@ -239,26 +240,34 @@ void play_file(vector<string> input, string wav_filename,
 int main(int argc, char **argv) {
     if (argc < 2) {
         printf("Usage: ./action2wav FILENAME.action");
-        printf(" {{INSTRUMENT_TYPE}} {{INSTRUMENT_NUMBER}} {{SAFE}}\n");
+        printf(" {{OUTPUT_FILE}} {{INSTRUMENT_TYPE}} {{INSTRUMENT_NUMBER}} {{SAFE}}\n");
     } else {
         string filename = argv[1];
         int instrument_type = 0;
         int instrument_number = 0;
-        if (argc > 2) {
-            instrument_type = atoi(argv[2]);
-        }
-        if (argc > 3) {
-            instrument_number = atoi(argv[3]);
-        }
 
         vector<string> input = gulp_file(filename.c_str());
         size_t suffix_position = filename.find(".actions");
         if (suffix_position == string::npos) {
-            printf("File should end in .actions\n");
-            exit(2);
+            suffix_position = filename.find(".tsv");
+            if (suffix_position == string::npos) {
+                printf("File should end in .actions or .tsv\n");
+                exit(2);
+            }
         }
         string wav_filename = filename;
         wav_filename.replace(suffix_position, 8, ".wav");
+
+        if (argc > 2) {
+            wav_filename = argv[2];
+        }        
+        if (argc > 3) {
+            instrument_type = atoi(argv[3]);
+        }
+        if (argc > 4) {
+            instrument_number = atoi(argv[4]);
+        }
+
         string forces_filename = filename;
         forces_filename.replace(suffix_position, 8, ".forces.wav");
         string log_filename = filename;
