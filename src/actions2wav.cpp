@@ -97,12 +97,12 @@ void command_finger(ArtifastringInstrument *violin, MonoWav *wavfile,
     int which_string;
     float finger_position;
 
-    if (num_tabs == 3 || num_tabs > 4) {
+    if (num_tabs == 3) {
         sscanf(command.c_str(), "f\t%f\t%i\t%f",
                &next_time, &which_string, &finger_position);
         waitUntil(violin, wavfile, forces_file, next_time);
         violin->finger(which_string, finger_position);
-    } else if (num_tabs == 4) {
+    } else if (num_tabs == 4 || num_tabs > 4) {
         float spring_K;
         sscanf(command.c_str(), "f\t%f\t%i\t%f\t%f",
                &next_time, &which_string, &finger_position, &spring_K);
