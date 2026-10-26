@@ -58,11 +58,13 @@ inline void waitUntil(ArtifastringInstrument *violin, MonoWav *wavfile,
         // make sure we can easily deal with forces
         delta = HAPTIC_DOWNSAMPLE_FACTOR*(delta/HAPTIC_DOWNSAMPLE_FACTOR);
         //cout<<"get audio space for: "<<delta<<endl;
+        printf("actions2wav waitUntil | Calling function request_fill | delta=%i\n", delta);
         short *array = wavfile->request_fill(delta);
         //cout<<"get force space for: "<<delta/4<<endl;
         // FIXME: test with full force buffer
         //short *forces = forces_file->request_fill(delta/HAPTIC_DOWNSAMPLE_FACTOR);
         //short *forces = forces_file->request_fill(delta);
+        printf("actions2wav waitUntil | Calling function wait_sample_forces | delta=%i\n", delta);
         int unsafe = violin->wait_samples_forces(array, NULL, delta);
         //int test_buffer[delta];
         //int test_forces[delta];
@@ -128,6 +130,7 @@ void command_wait(ArtifastringInstrument *violin, MonoWav *wavfile,
 {
     float next_time;
     sscanf(command.c_str(), "w\t%f", &next_time);
+    printf("actions2wav command_wait | Calling function waitUntil | f=%f\n", next_time);
     waitUntil(violin, wavfile, forces_file, next_time);
 }
 
@@ -153,7 +156,10 @@ void command_bow(ArtifastringInstrument *violin, MonoWav *wavfile,
     float bow_position, force, velocity;
     sscanf(command.c_str(), "b\t%f\t%i\t%f\t%f\t%f", &next_time,
            &which_string, &bow_position, &force, &velocity);
+    
+    printf("actions2wav command_bow | Calling function waitUntil | f=%f\n", next_time);
     waitUntil(violin, wavfile, forces_file, next_time);
+    printf("actions2wav command_bow | Calling function bow | string=%i, bow_position=%f, force=%f, velocity=%f\n", which_string, bow_position, force, velocity);
     violin->bow(which_string, bow_position, force, velocity);
 }
 
@@ -174,7 +180,9 @@ void play_file(vector<string> input, string wav_filename,
                string forces_filename, string log_filename,
                InstrumentType instrument_type, int instrument_number)
 {
+    printf("actions2wav play_file  | Initializing ArtifastringInstrument\n");
     ArtifastringInstrument *violin = new ArtifastringInstrument(instrument_type, instrument_number);
+    printf("actions2wav play_file  | Initializing MonoWav\n");
     MonoWav *wavfile = new MonoWav(wav_filename.c_str(),
                                    4096, ARTIFASTRING_INSTRUMENT_SAMPLE_RATE);
     //MonoWav *forces_file = new MonoWav(forces_filename.c_str(),
@@ -197,27 +205,34 @@ void play_file(vector<string> input, string wav_filename,
 
     total_samples = 0;
 
+    printf("actions2wav play_file  | Iterating over commands\n");
     for (unsigned int i=0; i<input.size(); i++) {
         switch (input[i][0]) {
         case '#':
             // comment line; do nothing
             break;
         case 'r':
+            printf("actions2wav play_file  | Calling function reset\n");
             command_reset(violin, wavfile, forces_file, input[i]);
             break;
         case 'w':
+            printf("actions2wav play_file  | Calling function wait\n");
             command_wait(violin, wavfile, forces_file, input[i]);
             break;
         case 'f':
+            printf("actions2wav play_file  | Calling function finger\n");
             command_finger(violin, wavfile, forces_file, input[i]);
             break;
         case 'b':
+            printf("actions2wav play_file  | Calling function bow\n");
             command_bow(violin, wavfile, forces_file, input[i]);
             break;
         case 'a':
+            printf("actions2wav play_file  | Calling function accelerate\n");
             command_bow_accel(violin, wavfile, forces_file, input[i]);
             break;
         case 'p':
+            printf("actions2wav play_file  | Calling function pluck\n");
             command_pluck(violin, wavfile, forces_file, input[i]);
             break;
         case '\n':
@@ -230,7 +245,9 @@ void play_file(vector<string> input, string wav_filename,
             //printf("%i\n", input[i][0]);
         }
     }
+    printf("actions2wav play_file  | Deleting ArtifastringInstrument\n");
     delete violin;
+    printf("actions2wav play_file  | Deleting MonoWav\n");
     delete wavfile;
     //delete forces_file;
 }
@@ -238,6 +255,7 @@ void play_file(vector<string> input, string wav_filename,
 
 
 int main(int argc, char **argv) {
+    printf("actions2wav main       | parsing command line arguments\n");
     if (argc < 2) {
         printf("Usage: ./action2wav FILENAME.action");
         printf(" {{OUTPUT_FILE}} {{INSTRUMENT_TYPE}} {{INSTRUMENT_NUMBER}} {{SAFE}}\n");
@@ -273,6 +291,7 @@ int main(int argc, char **argv) {
         string log_filename = filename;
         log_filename.replace(suffix_position, 8, ".string-%i.log");
 
+        printf("actions2wav main       | Calling play_file function\n");
         play_file(input, wav_filename, forces_filename,
                   log_filename,
                   (InstrumentType)instrument_type, instrument_number);

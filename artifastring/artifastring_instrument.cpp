@@ -79,6 +79,7 @@ ArtifastringInstrument::ArtifastringInstrument(
 #else
         const int fs_multiply = FS_MULTIPLICATION_FACTOR[m_instrument_type][st];
 #endif
+        printf("ArtifastringInstrument | Initializing ArtifastringString | %i\n", st);
         artifastringString[st] = new ArtifastringString(m_instrument_type,
                 instrument_number, st, fs_multiply, instrument_sample_rate);
     }
@@ -95,6 +96,7 @@ ArtifastringInstrument::ArtifastringInstrument(
     // FFT stuff
 
     // lowpass
+    printf("ArtifastringInstrument | Initializing String and Body Convolution\n");
     for (int i=0; i<NUM_VIOLIN_STRINGS; i++) {
         string_audio_lowpass_convolution[i] = NULL;
         string_force_lowpass_convolution[i] = NULL;
@@ -130,6 +132,9 @@ ArtifastringInstrument::ArtifastringInstrument(
                 lowpass_time_data = LOWPASS_4,
                 lowpass_num_taps = NUM_TAPS_LOWPASS_4;
             }
+
+            printf("ArtifastringInstrument | String %i | fs_multiply=%i, lowpass_num_taps=%i, instrument_sample_rate=%i\n", st, fs_multiply, lowpass_num_taps, instrument_sample_rate);
+
             
             // If the requested sample rate is the default sample rate, we're done.
             // If not, the supplied convolution has to be scaled for the new sample
@@ -140,6 +145,7 @@ ArtifastringInstrument::ArtifastringInstrument(
                                lowpass_num_taps,
                                instrument_sample_rate);
 
+            printf("ArtifastringInstrument | String %i | Initializing ArtifastringConvolution\n", st);
             string_audio_lowpass_convolution[st] = new ArtifastringConvolution(
                 fs_multiply, lowpass_time_data, lowpass_num_taps);
             string_force_lowpass_convolution[st] = new ArtifastringConvolution(
@@ -147,6 +153,10 @@ ArtifastringInstrument::ArtifastringInstrument(
                         
             string_audio_lowpass_input[st] = string_audio_lowpass_convolution[st]->get_input_buffer();
             string_force_lowpass_input[st] = string_force_lowpass_convolution[st]->get_input_buffer();
+
+            for (int i=0; i < 10; i++) {
+                printf("         Lowpass Input | i=%i, value=%f\n", i, string_force_lowpass_input[st][i]);
+            }
 
         }
 
@@ -279,9 +289,13 @@ ArtifastringInstrument::ArtifastringInstrument(
                            body_num_taps,
                            instrument_sample_rate);
         
+        printf("ArtifastringInstrument | Body | Initializing ArtifastringConvolution\n");
         body_audio_convolution = new ArtifastringConvolution(
             1, body_time_data, body_num_taps);
         body_audio_input = body_audio_convolution->get_input_buffer();
+        for (int i=0; i < 10; i++) {
+            printf("         Lowpass Input | i=%i, value=%f\n", i, body_audio_input[i]);
+        }
     }
 }
 
@@ -386,7 +400,7 @@ int ArtifastringInstrument::wait_samples(short *buffer, int num_samples)
 int ArtifastringInstrument::wait_samples_forces(short *buffer, short *forces,
         int num_samples)
 {
-    //printf("wait_sample_forces, num_samples: %i\n", num_samples);
+    printf("wait_sample_forces | num_samples=%i\n", num_samples);
     int remaining = num_samples;
     int position = 0;
     while (remaining > NORMAL_BUFFER_SIZE) {
@@ -665,6 +679,7 @@ void ArtifastringInstrument::resample_time_data(const float*& time_data,
             static_cast<double>(ARTIFASTRING_INSTRUMENT_SAMPLE_RATE)
         );
         const long num_resampled_taps(sr_ratio*num_taps);
+        printf("ArtifastringInstrument resample_time_data | sr_ratio=%f, num_resampled_taps=%ld\n", sr_ratio, num_resampled_taps);
         resampledTDCacheKey k {time_data, sample_rate};
         //std::cout << "resample request at " << sample_rate << "Hz for " << time_data << std::endl;
         

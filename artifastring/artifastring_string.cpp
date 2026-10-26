@@ -68,6 +68,7 @@ ArtifastringString::ArtifastringString(InstrumentType which_instrument,
     fs = fs_multiplier * instrument_sample_rate;
     dt = 1.0f / fs;
     //printf("fs: %i\tmult: %i\n", fs, fs_multiplier);
+    printf("ArtifastString         | Setting physical constants | fs_multiplier=%i, fs=%i, dt=%f\n", fs_multiplier, fs, dt);
 
     switch (which_instrument) {
     case Violin: {
@@ -92,11 +93,13 @@ ArtifastringString::ArtifastringString(InstrumentType which_instrument,
 #endif
     debug_string_num = string_number;
 
+    printf("ArtifastString         | Setting random seed\n");
     srand( time(NULL) );
     //srand( string_number );
     //srand( 0 );
 
     // must happen after opening logfile!
+    printf("ArtifastString         | Calling reset function\n");
     reset();
 }
 
@@ -307,6 +310,7 @@ void ArtifastringString::bow(const float bow_ratio_from_bridge,
         //printf("recache %i\n", debug_string_num);
     }
     ss.actions = BOW;
+    printf("ArtifastringString bow  | va.Fb=%f, va.vb=%f, bow_distance_from_bridge=%f\n", bow_force, bow_velocity, bow_distance_from_bridge);
 }
 
 void ArtifastringString::bow_accel(const float bow_ratio_from_bridge,
@@ -336,11 +340,13 @@ String_Physical ArtifastringString::get_physical_constants()
 void ArtifastringString::set_physical_constants(String_Physical pc_new)
 {
     pc = pc_new;
+    printf("ArtifastString set_pc  | set_N=%i\n", pc.N);
 #ifdef FIXEDSIZE
     set_N(MODES);
 #else
     set_N(pc.N);
 #endif
+    printf("ArtifastString set_pc  | Calling function cache_pc_c\n");
     cache_pc_c();
     vc.recache = true;
 }
